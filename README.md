@@ -1,0 +1,2 @@
+# my-site
+CHATGPT MCP

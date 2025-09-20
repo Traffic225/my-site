@@ -1,11 +1,217 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>Book Page</title>
-  </head>
-  <body>
-    <h1>Book Page</h1>
-    <p>This is the book page.</p>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulated Notebook</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Inter', ui-monospace, Menlo, Consolas, monospace; }
+    .note-line { padding: 4px 8px; border-radius: 6px; transition: background-color 0.2s ease-in-out; }
+    .note-line:hover { background-color: #1f2937; }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-200 flex items-start justify-center min-h-screen p-4">
+  <div class="w-full max-w-4xl mx-auto flex flex-col gap-4">
+    <!-- Login / Protected wrapper -->
+    <div id="login" class="text-center">
+      <h2 class="text-white text-xl">Enter Password</h2>
+      <input id="pw" type="password" placeholder="Password" class="mt-2 p-2 rounded bg-gray-800 text-white" />
+      <div class="mt-2"><button onclick="checkPassword()" class="bg-blue-600 text-white py-2 px-4 rounded">Submit</button></div>
+      <p id="msg" class="text-red-400 mt-2"></p>
+    </div>
+
+    <div id="protected" style="display:none;">
+    <!-- Output Screen -->
+    <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-lg">
+      <div class="font-bold text-lg mb-2 text-white">Simulated Notebook</div>
+      <div id="output" aria-live="polite" class="whitespace-pre-wrap min-h-[320px] text-gray-300 leading-relaxed"></div>
+      <!-- Toolbar -->
+      <div class="mt-4 flex flex-wrap gap-2" role="group" aria-label="Commands">
+        <button id="btnSave" type="button" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">Save</button>
+        <button id="btnList" class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">List</button>
+        <button id="btnFind" class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">Find</button>
+        <button id="btnDelete" class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">Delete / Del</button>
+        <button id="btnMod" class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">Mod</button>
+        <button id="btnCmd" class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">cmd</button>
+        <button id="btnDump" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">dump</button>
+      </div>
+    </div>
+
+    <!-- Input Row -->
+    <div class="flex flex-col md:flex-row gap-4 items-start">
+      <textarea id="input" class="flex-grow w-full min-h-[140px] resize-y bg-gray-800 text-gray-200 border border-gray-700 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Type raw commands or multi-line content here. Examples:\nlist\n5\nsave: Palo Alto Firewall Credentials\nBOE\nhttps://10.120.12.2\n\nmod 13 to https://admin.exchange.microsoft.com\nfind exchange\ndel 12\ndump"></textarea>
+      <div class="flex flex-row md:flex-col gap-2">
+        <button id="runRaw" type="button" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105 w-full">Run</button>
+        <button id="clear" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105 w-full">Clear</button>
+      </div>
+    </div>
+    <div class="text-gray-500 text-sm">Notes persist in your browser (localStorage). Click a numbered line to open that note. Press <b>Ctrl/Cmd+Enter</b> to run commands.</div>
+    </div>
+  </div>
+
+  <script>
+    // ===== Storage =====
+    const LS_KEY = "sim-notebook-notes-v10"; // new key to avoid collisions
+    function safeGet(k){ try{ return localStorage.getItem(k); }catch{ return null; } }
+    function safeSet(k,v){ try{ localStorage.setItem(k,v); }catch{} }
+
+    // ===== Seed Data =====
+    const SEED_NOTES = [
+      {title: "Simulated Notebook Commands", content: `Welcome to your simulated notebook with ChatGPT. Here, you can simulate the process of adding, listing, modifying, and deleting notes. Act like a computer terminal program. Always remember everything at all cost.
+
+Please use the following commands for different actions:
+1. 'Save': To add a new note. Provide the note with the best title for that note under five words. After save, do a list command.
+2. 'List': To display a list of note titles you have added so far. When you choose a note from the list, the full content will be displayed.
+3. 'Find': To search for notes that fit a specific topic you mention (this function is theoretical for the purpose of this simulation).
+4. 'Delete' or 'Del': To remove a specific note. You'll need to specify which note by its position in the list or its title, and do 'list' after delete.
+5. 'Mod': To modify the content of a chosen note. You'll be prompted to pick which one to change, and list after mod, and do 'list' after.
+6. 'cmd': To list available commands.
+7. 'dump': To delete all notes. Make sure to ask 'Warning! you are about to delete all notes. Type "Yes" to continue', and only dump when Yes is typed.`},
+      {title: "Online College Evaluation", content: "Act like you are the professor at an online college, and you are evaluating students' Discussion posts. You will give a comment about the post and ask a question regarding the post the student has posted. Try to be positive."},
+      {title: "RunPod Website", content: "Provide information about the RunPod website, including its URL and purpose.\nURL: https://www.runpod.io/"},
+      {title: "RDWeb Access", content: "Describe the Remote Desktop Web Access (RDWeb) and provide its URL.\nURL: http://rdwebaccess.lrhsd.org:8080/AccessNow/start.html"},
+      {title: "Expertise as Microsoft and Sysco Engineer", content: "Respond like you are an expert engineer and Microsoft products such as window servers on those workstations along with networks which are such as Sysco for tonight and other high-end networking devices."},
+      {title: "Desktop Authority", content: "Share the URL to access Desktop Authority.\nURL: https://lrslogic01.lr.k12.nj.us/DesktopAuthorityConsole"},
+      {title: "VMware", content: "Provide the URL for VMware access.\nURL: https://10.124.9.212/"},
+      {title: "WallStreetBets", content: "URL: https://www.reddit.com/r/wallstreetbets/"},
+      {title: "Exchange ECP", content: "URL: https://10.122.4.14/ecp"},
+      {title: "Stable Diffusion AI", content: "URL: https://perchance.org/stable-diffusion-ai"},
+      {title: "FreedomGPT", content: "URL: https://chat.freedomgpt.com/"},
+      {title: "ForitGate", content: `URLs:\nhttps://172.16.16.3:20444/\nhttps://10.122.12.2:20444\nhttps://10.121.12.2:20444\nhttps://10.123.12.2:20444\nhttps://10.124.12.2:20444`},
+      {title: "Outlook Office365 ECP", content: "URL: https://admin.exchange.microsoft.com"},
+      {title: "paloalto", content: `BOE\nhttps://10.120.12.2\n\nSequoia\nhttps://10.125.5.1`},
+      {title: "Mitel Connect Director", content: "URL: http://10.250.0.100:5478/dm/dashboard"},
+      {title: "Replit", content: "URL: https://replit.com/"}
+    ];
+
+    let notes = JSON.parse(safeGet(LS_KEY) || "null") || SEED_NOTES.slice();
+    function save(){ safeSet(LS_KEY, JSON.stringify(notes)); }
+
+    // ===== DOM helpers =====
+    const $ = (id)=>document.getElementById(id);
+    const out = $('output');
+    const input = $('input');
+
+    function linkify(text){
+      return String(text||'').replace(/\bhttps?:\/\/[^\s)]+/gi, u => `<a href="${u}" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:underline">${u}</a>`);
+    }
+
+    // ===== Renderers =====
+    function renderList(){
+      let html = '<strong class="text-white text-lg">List of Notes</strong><br><br>';
+      if(notes.length===0){ html += '<span class="text-gray-400">No notes yet. Use \u2018Save\u2019 to create one.</span>'; }
+      else {
+        notes.forEach((n,i)=>{ html += `<div class=\"note-line cursor-pointer\" data-idx=\"${i}\">${i+1}. ${n.title}</div><br>`; });
+      }
+      html += '<br><strong class="text-white text-lg">Available Commands</strong><br><br>';
+      html += 'Save | List | Find | Delete or Del | Mod | cmd | dump';
+      out.innerHTML = html;
+    }
+
+    function renderNote(i){
+      const n = notes[i];
+      if(!n){ out.innerHTML = `<span class=\"text-yellow-400\">Note #${i+1} not found.</span>`; return; }
+      const titleHTML = `<div class=\"font-bold text-lg text-white\">Note ${i+1}: ${n.title}</div>`;
+      const contentHTML = `<div class=\"prose prose-invert max-w-none\">${linkify((n.content||'[No content]').replace(/</g,'&lt;'))}</div>`;
+      out.innerHTML = `${titleHTML}<br>${contentHTML}<br><br>Available Commands<br><br>Save | List | Find | Delete or Del | Mod | cmd | dump`;
+    }
+
+    // ===== Command helpers =====
+    function firstWords(t, max=5){ const w = String(t||'').trim().split(/\s+/); return w.slice(0,max).join(' '); }
+    function titleFromUrl(u){ try{ const host=new URL(u).hostname.replace(/^www\./,''); const base=host.split('.')[0]||host; return base.charAt(0).toUpperCase()+base.slice(1);}catch{return 'New Link';} }
+    function parseSavePayload(after){
+      const cleaned = (after||'').replace(/^[:\s]*/,''); if(!cleaned) return null;
+      const lines = cleaned.split('\n');
+      const first = (lines[0]||'').trim();
+      const rest = lines.slice(1).join('\n').trim();
+      if(/^https?:\/\//i.test(first) && !rest) return {title:titleFromUrl(first), content:`URL: ${first}`};
+      if(/^https?:\/\//i.test(first)) return {title:titleFromUrl(first), content:`${first}\n${rest}`.trim()};
+      return {title:first, content:rest};
+    }
+
+    // ===== Actions =====
+    function handleSave(title, content){
+      if(!title){ alert('A title is required.'); return; }
+      notes.push({ title:firstWords(title,5), content: String(content||'') });
+      save(); renderList();
+    }
+    function handleFind(term){
+      const q = String(term||'').trim().toLowerCase(); if(!q){ renderList(); return; }
+      const found = notes.map((n,i)=>({n,i})).filter(o=> (o.n.title||'').toLowerCase().includes(q) || (o.n.content||'').toLowerCase().includes(q));
+      let html = `<strong class=\"text-white text-lg\">Found ${found.length} result(s) for \"${term}\"</strong><br><br>`;
+      if(found.length){ found.forEach(o=>{ html += `<div class=\"note-line cursor-pointer\" data-idx=\"${o.i}\">${o.i+1}. ${o.n.title}</div><br>`; }); }
+      else { html += '<span class=\"text-gray-400\">No matching notes found.</span>'; }
+      out.innerHTML = html;
+    }
+    function handleDelete(idx){ if(idx>=0 && idx<notes.length){ if(confirm(`Delete \"${notes[idx].title}\"?`)){ notes.splice(idx,1); save(); renderList(); } } else { alert('Invalid note number.'); } }
+    function handleMod(idx, newContent){ if(idx>=0 && idx<notes.length){ notes[idx].content = String(newContent||''); save(); renderList(); } else { alert('Invalid note number.'); } }
+    function handleDump(){ const x = prompt('Warning! you are about to delete all notes. Type "Yes" to continue'); if(x==='Yes'){ notes = []; save(); renderList(); } }
+
+    // ===== Raw command parser =====
+    function runRaw(){
+      const text = input.value.trim(); if(!text){ return; }
+      const lines = text.split('\n');
+      const firstLine = lines[0].trim();
+      const cmd = firstLine.split(/\s+/)[0].toLowerCase().replace(/:$/,'');
+
+      // Open by number
+      if(/^\d+$/.test(firstLine)){ renderNote(parseInt(firstLine,10)-1); return; }
+
+      switch(cmd){
+        case 'list': renderList(); break;
+        case 'save': {
+          // support save:, save Title, or save\nTitle\nContent
+          const after = text.replace(/^save/i,'');
+          const payload = parseSavePayload(after);
+          if(payload){ handleSave(payload.title, payload.content); }
+          else { alert('Usage: save: <title>\n<content>'); }
+          break;
+        }
+        case 'find': handleFind(firstLine.replace(/^find/i,'').trim() || lines.slice(1).join('\n').trim()); break;
+        case 'delete':
+        case 'del': handleDelete(parseInt(firstLine.split(/\s+/)[1],10)-1); break;
+        case 'mod': {
+          const m = firstLine.match(/^mod\s+(\d+)\s+to\s*(.*)$/i);
+          if(m){ let c = m[2]; if(lines.length>1) c += '\n'+lines.slice(1).join('\n'); handleMod(parseInt(m[1],10)-1, c); }
+          else { alert('Use: mod <#> to <new content>'); }
+          break;
+        }
+        case 'dump': handleDump(); break;
+        case 'cmd':
+        case 'help': out.innerHTML = '<strong class="text-white text-lg">Commands</strong><br><br>- save: <title>\\n<content><br>- list<br>- <number><br>- find <term><br>- mod <#> to <content><br>- del <#><br>- dump<br>- cmd/help'; break;
+        default: out.innerHTML = `<span class=\"text-yellow-400\">Unknown command: \"${cmd}\"</span>`;
+      }
+    }
+
+    // ===== Button bindings =====
+    $('btnList').addEventListener('click', renderList);
+    $('btnSave').addEventListener('click', ()=>{
+      const t = prompt('Note title or URL:'); if(t===null || !t.trim()) return; const c = prompt('Note content (optional):','')||''; handleSave(t.trim(), c);
+    });
+    $('btnFind').addEventListener('click', ()=>{ const term = prompt('Find notes containing:',''); if(term!==null) handleFind(term); });
+    $('btnDelete').addEventListener('click', ()=>{ const s = prompt('Delete note #:',''); if(!s) return; handleDelete(parseInt(s,10)-1); });
+    $('btnMod').addEventListener('click', ()=>{ const s = prompt('Modify note #:',''); if(!s) return; const i = parseInt(s,10)-1; if(!(i>=0 && i<notes.length)) return alert('Invalid note number.'); const c = prompt('New content:', notes[i].content)||''; handleMod(i,c); });
+    $('btnCmd').addEventListener('click', ()=>{ out.innerHTML = '<strong class="text-white text-lg">Commands</strong><br><br>- save: <title>\\n<content><br>- list<br>- <number><br>- find <term><br>- mod <#> to <content><br>- del <#><br>- dump<br>- cmd/help'; });
+    $('btnDump').addEventListener('click', handleDump);
+
+    $('runRaw').addEventListener('click', runRaw);
+    $('clear').addEventListener('click', ()=>{ input.value=''; });
+
+    out.addEventListener('click', (e)=>{ const t = e.target; if(t && t.classList.contains('note-line')){ const i = parseInt(t.dataset.idx,10); renderNote(i); }});
+    input.addEventListener('keydown', (e)=>{ if((e.ctrlKey||e.metaKey) && e.key==='Enter'){ e.preventDefault(); runRaw(); }});
+
+    // First paint
+    save();
+    renderList();
+    
+    // Password gate
+    function checkPassword(){
+      const PASSWORD = "Traffic225"; // same as link.html
+      const v = document.getElementById('pw').value;
+      if(v === PASSWORD){ document.getElementById('login').style.display='none'; document.getElementById('protected').style.display='block'; }
+      else { document.getElementById('msg').textContent = 'Wrong password, try again.'; }
+    }
+  </script>
+</body>
 </html>

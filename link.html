@@ -2,12 +2,58 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Link Page</title>
+    <title>Link Page (Password Protected)</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        background: #fff;
+        color: #000;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        text-align: center;
+      }
+      #protected {
+        display: none;
+      }
+      #login {
+        margin-top: 20px;
+      }
+      input {
+        padding: 8px;
+        margin: 6px;
+      }
+    </style>
   </head>
   <body>
-    <h1>Link Page</h1>
-    <p>This page links back to the main page.</p>
-    <p><a href="index.html">Go to Home (index.html)</a></p>
-    <p><a href="CubeHumanity.html">CubeHumanity</a></p>
+    <div id="login">
+      <h2>Enter Password</h2>
+      <input type="password" id="pw" placeholder="Password" />
+      <button onclick="checkPassword()">Submit</button>
+      <p id="msg" style="color:red;"></p>
+    </div>
+
+    <div id="protected">
+      <h1>Link Page</h1>
+      <p>This page links back to the main page.</p>
+      <p><a href="index.html">Go to Home (index.html)</a></p>
+      <p><a href="CubeHumanity.html">CubeHumanity</a></p>
+    </div>
+
+    <script>
+      const PASSWORD = "Traffic225"; // updated password
+
+      function checkPassword() {
+        const input = document.getElementById("pw").value;
+        if (input === PASSWORD) {
+          document.getElementById("login").style.display = "none";
+          document.getElementById("protected").style.display = "block";
+        } else {
+          document.getElementById("msg").textContent = "Wrong password, try again.";
+        }
+      }
+    </script>
   </body>
 </html>
